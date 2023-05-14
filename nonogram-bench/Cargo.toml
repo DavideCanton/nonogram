@@ -10,5 +10,5 @@ criterion = { version = "0.4", features = ["html_reports"] }
 nonogram = { path = "../nonogram" }
 
 [[bench]]
-name = "my_benchmark"
+name = "main"
 harness = false

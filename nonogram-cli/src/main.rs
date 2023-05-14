@@ -1,10 +1,10 @@
 use std::{env, error::Error, fs::File, io::BufReader, path::Path, time::Instant};
 
-use log::info;
+use log::{info, LevelFilter};
 use nonogram::{schema::NonogramSchema, solver::solve};
 use serde_derive::Deserialize;
 use serde_json::from_reader;
-use simple_logger::init_with_env;
+use simple_logger::SimpleLogger;
 
 #[derive(Deserialize)]
 struct NonogramJson {
@@ -29,7 +29,11 @@ fn read_schema<P: AsRef<Path>>(path: P) -> Result<NonogramSchema, Box<dyn Error>
 }
 
 fn main() {
-    init_with_env().unwrap();
+    SimpleLogger::new()
+        .with_level(LevelFilter::Info)
+        .env()
+        .init()
+        .unwrap();
 
     let args: Vec<String> = env::args().collect();
 
