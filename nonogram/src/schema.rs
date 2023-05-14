@@ -12,8 +12,7 @@ pub enum Error {
     InvalidLabel(String),
 }
 
-pub type Label = usize;
-pub type Labels = Vec<Label>;
+pub type Labels = Vec<usize>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub struct NonogramSchema {

@@ -1,13 +1,13 @@
-use crate::schema::Cell;
+use crate::schema::{Cell::Crossed as X, Cell::Empty as N, Cell::Full as O};
 
 mod number_tests {
-    use std::collections::HashSet;
+    use std::{collections::HashSet, hash::Hash};
 
     use crate::solver::numbers;
 
     #[test]
     fn test_1() {
-        let r: HashSet<_> = numbers(&[1, 2], 5).collect();
+        let r: HashSet<_> = HashSet::from_iter(numbers(&[1, 2], 5).into_iter());
 
         assert_eq!(r.len(), 3);
         assert!(r.contains(&vec![0, 1, 1]));
@@ -17,7 +17,7 @@ mod number_tests {
 
     #[test]
     fn test_2() {
-        let r: HashSet<_> = numbers(&[1, 2], 7).collect();
+        let r: HashSet<_> = HashSet::from_iter(numbers(&[1, 2], 7).into_iter());
 
         assert_eq!(r.len(), 10);
 
@@ -35,7 +35,7 @@ mod number_tests {
 
     #[test]
     fn test_3() {
-        let r: HashSet<_> = numbers(&[1], 7).collect();
+        let r: HashSet<_> = HashSet::from_iter(numbers(&[1], 7).into_iter());
 
         assert_eq!(r.len(), 7);
 
@@ -56,7 +56,7 @@ mod number_tests {
         // 1 2 1 0
         // 1 1 2 0
         // 2 1 1 0
-        let r: HashSet<_> = numbers(&[1, 1, 1], 7).collect();
+        let r: HashSet<_> = HashSet::from_iter(numbers(&[1, 1, 1], 7).into_iter());
 
         assert_eq!(r.len(), 10);
 
@@ -74,66 +74,60 @@ mod number_tests {
 }
 
 mod intersect_tests {
-    use super::{from_cell, to_cell};
-    use crate::solver::intersect;
-    use itertools::Itertools;
+    use super::{N, O, X};
+    use crate::{schema::Cell, solver::intersect};
     use test_case::test_case;
 
     #[test_case(
-        "..XOOX.OX.", 
-        ".X.OXXOXO.",
-        "...O.X...."; 
+        &[N,N,X,O,O,X,N,O,X,N], 
+        &[N,X,N,O,X,X,O,X,O,N],
+        &[N,N,N,O,N,X,N,N,N,N];
         "case 1"
     )]
     #[test_case(
-        "..XOOX.OX.", 
-        "...OOX.XO.",
-        "...OOX...."; 
+        &[N,N,X,O,O,X,N,O,X,N], 
+        &[N,N,N,O,O,X,N,X,O,N],
+        &[N,N,N,O,O,X,N,N,N,N];
         "case 2"
     )]
-    fn test(row1: &'static str, row2: &'static str, expected: &'static str) {
-        let mut row1 = row1.chars().map(to_cell).collect_vec();
-        let row2 = row2.chars().map(to_cell).collect_vec();
-
-        intersect(&mut row1, row2.into_iter());
-
-        let res: String = row1.into_iter().map(from_cell).collect();
-        assert_eq!(&res, expected);
+    fn test(row1: &[Cell], row2: &[Cell], expected: &[Cell]) {
+        let mut buf = Vec::from(row1);
+        intersect(&mut buf, row2.iter().copied());
+        assert_eq!(buf, expected);
     }
 }
 
 mod numbers_to_row_tests {
-    use super::from_cell;
+    use super::{O, X};
+    use crate::{schema::Cell, solver::numbers_to_row};
     use test_case::test_case;
-
-    use crate::{schema::Label, solver::numbers_to_row};
 
     #[test_case(
         &[1, 2, 3], 
         &[2, 4],
-        "XOOXXOOOOXXX"; 
+        &[X,O,O,X,X,O,O,O,O,X,X,X,]; 
         "case 1"
     )]
     #[test_case(
         &[0, 2, 3], 
         &[2, 4],
-        "OOXXOOOOXXX"; 
+        &[O,O,X,X,O,O,O,O,X,X,X,]; 
         "case 2"
     )]
     #[test_case(
         &[1, 2], 
         &[2],
-        "XOOXX"; 
+        &[X,O,O,X,X]; 
         "case 3"
     )]
     #[test_case(
         &[0, 0], 
         &[3],
-        "OOO"; 
+        &[O,O,O]; 
         "case empty"
     )]
-    fn test(voids: &[Label], labels: &[Label], expected: &'static str) {
-        let res: String = numbers_to_row(voids, labels).map(from_cell).collect();
+    fn test(voids: &[usize], labels: &[usize], expected: &[Cell]) {
+        let res: Vec<_> = numbers_to_row(voids, labels).collect();
         assert_eq!(&res, expected);
     }
 
@@ -142,23 +136,7 @@ mod numbers_to_row_tests {
     #[test_case(&[], &[2, 4]; "case 3")]
     #[test_case(&[1, 2], &[]; "case 4")]
     #[should_panic]
-    fn test_panic(voids: &[Label], labels: &[Label]) {
+    fn test_panic(voids: &[usize], labels: &[usize]) {
         let _ = numbers_to_row(voids, labels);
-    }
-}
-
-fn to_cell(c: char) -> Cell {
-    match c {
-        'X' => Cell::Crossed,
-        'O' => Cell::Full,
-        _ => Cell::Empty,
-    }
-}
-
-fn from_cell(c: Cell) -> char {
-    match c {
-        Cell::Crossed => 'X',
-        Cell::Full => 'O',
-        Cell::Empty => '.',
     }
 }
