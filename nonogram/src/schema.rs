@@ -1,6 +1,10 @@
 use array2d::Array2D;
 use itertools::Itertools;
-use std::fmt::Debug;
+use log::{info, log, Level};
+use std::{
+    error,
+    fmt::{Debug, Display},
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Cell {
@@ -24,22 +28,28 @@ pub enum Error {
     InvalidLabel(String),
 }
 
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::InvalidLabel(s) => write!(f, "Invalid label, {}", s),
+        }
+    }
+}
+
+impl error::Error for Error {}
+
 pub type Labels = Vec<usize>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub struct NonogramSchema {
     data: Array2D<Cell>,
-    rows_labels: Vec<Labels>,
-    cols_labels: Vec<Labels>,
+    row_lbl: Vec<Labels>,
+    col_lbl: Vec<Labels>,
 }
 
 fn _validate(rows: usize, rows_labels: &Vec<Labels>, cols: usize) -> Result<()> {
     if rows_labels.len() != rows {
-        let msg = format!(
-            "Invalid label size, expected {}, found {}",
-            rows,
-            rows_labels.len()
-        );
+        let msg = format!("expected {}, found {}", rows, rows_labels.len());
         return Err(Error::InvalidLabel(msg));
     }
 
@@ -61,16 +71,16 @@ impl NonogramSchema {
     pub fn new(
         rows: usize,
         cols: usize,
-        rows_labels: Vec<Labels>,
-        cols_labels: Vec<Labels>,
+        row_labels: Vec<Labels>,
+        col_labels: Vec<Labels>,
     ) -> Result<Self> {
-        _validate(rows, &rows_labels, cols)?;
-        _validate(cols, &cols_labels, rows)?;
+        _validate(rows, &row_labels, cols)?;
+        _validate(cols, &col_labels, rows)?;
 
         let schema = NonogramSchema {
             data: Array2D::filled_with(Cell::Empty, rows, cols),
-            rows_labels,
-            cols_labels,
+            row_lbl: row_labels,
+            col_lbl: col_labels,
         };
         Ok(schema)
     }
@@ -104,30 +114,39 @@ impl NonogramSchema {
     }
 
     pub fn row_label_at(&self, i: usize) -> &[usize] {
-        &self.rows_labels[i]
+        &self.row_lbl[i]
     }
 
     pub fn col_label_at(&self, j: usize) -> &[usize] {
-        &self.cols_labels[j]
+        &self.col_lbl[j]
     }
 
     pub fn solved_row(&self, i: usize) -> bool {
-        self.is_solved(
-            self.data.row_iter(i).unwrap().copied(),
-            &self.rows_labels[i],
-        )
+        self.is_solved(self.data.row_iter(i).unwrap().copied(), &self.row_lbl[i])
     }
 
     pub fn solved_col(&self, j: usize) -> bool {
-        self.is_solved(
-            self.data.column_iter(j).unwrap().copied(),
-            &self.cols_labels[j],
-        )
+        self.is_solved(self.data.column_iter(j).unwrap().copied(), &self.col_lbl[j])
     }
 
-    pub fn print(&self) {
+    pub fn print_solved(&self) {
         for i in 0..self.rows() {
-            println!("{:?}", self.row_at(i));
+            let row = self
+                .row_at(i)
+                .iter()
+                .map(|c| match c {
+                    Cell::Empty => panic!(),
+                    Cell::Crossed => ' ',
+                    Cell::Full => 'O',
+                })
+                .join("");
+            info!("{:?}", row);
+        }
+    }
+
+    pub fn print(&self, level: Level) {
+        for i in 0..self.rows() {
+            log!(level, "{:?}", self.row_at(i));
         }
     }
 

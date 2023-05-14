@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 array2d = "0.3.0"
 itertools = "0.10.5"
+log = "0.4.17"
 
 [dev-dependencies]
 test-case = "3.0.1"

@@ -1,43 +1,48 @@
+use std::{env, error::Error, fs::File, io::BufReader, path::Path, time::Instant};
+
+use log::info;
 use nonogram::{schema::NonogramSchema, solver::solve};
+use serde_derive::Deserialize;
+use serde_json::from_reader;
+use simple_logger::init_with_env;
+
+#[derive(Deserialize)]
+struct NonogramJson {
+    row_labels: Vec<Vec<usize>>,
+    col_labels: Vec<Vec<usize>>,
+    rows: usize,
+    cols: usize,
+}
+
+fn read_schema<P: AsRef<Path>>(path: P) -> Result<NonogramSchema, Box<dyn Error>> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    let json_schema: NonogramJson = from_reader(reader)?;
+    let schema = NonogramSchema::new(
+        json_schema.rows,
+        json_schema.cols,
+        json_schema.row_labels,
+        json_schema.col_labels,
+    )?;
+    Ok(schema)
+}
 
 fn main() {
-    let rows_labels = vec![
-        vec![11],
-        vec![1, 1],
-        vec![1, 1],
-        vec![1, 1],
-        vec![13],
-        vec![3, 8, 2],
-        vec![11, 3],
-        vec![2, 3, 2, 3],
-        vec![4, 1, 3],
-        vec![3, 1, 4],
-        vec![2, 1, 3],
-        vec![3, 3, 2],
-        vec![5, 5],
-        vec![9],
-        vec![5],
-    ];
+    init_with_env().unwrap();
 
-    let cols_labels = vec![
-        vec![5],
-        vec![9],
-        vec![1, 1, 3, 5],
-        vec![2, 1, 3, 3],
-        vec![1, 4, 1, 2],
-        vec![1, 4, 3],
-        vec![1, 3, 3],
-        vec![1, 3, 2],
-        vec![1, 4, 4],
-        vec![1, 5, 5],
-        vec![1, 3, 3],
-        vec![2, 2, 2, 2],
-        vec![1, 1, 1, 7],
-        vec![9],
-        vec![5],
-    ];
+    let args: Vec<String> = env::args().collect();
 
-    let mut schema = NonogramSchema::new(15, 15, rows_labels, cols_labels).unwrap();
+    if args.len() < 2 {
+        panic!("Expected file name");
+    }
+
+    let mut schema = read_schema(&args[1]).unwrap();
+
+    let now = Instant::now();
     solve(&mut schema);
-    schema.print();
+    let duration = now.elapsed().as_millis();
+
+    info!("Solved in {} ms", duration);
+    schema.print_solved();
 }

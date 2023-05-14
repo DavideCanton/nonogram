@@ -6,7 +6,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             let starting_row = vec![Cell::Empty; 15];
             let labels = [7, 7];
-            solve_vec(&labels, starting_row);
+            solve_vec(&labels, &starting_row);
         })
     });
 }

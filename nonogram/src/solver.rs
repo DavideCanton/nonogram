@@ -4,7 +4,7 @@
 
 use std::{collections::VecDeque, iter};
 
-use itertools::Itertools;
+use log::{debug, Level};
 
 use crate::schema::{
     Cell::{self, Crossed as X, Empty as N, Full as O},
@@ -27,15 +27,22 @@ use crate::schema::{
 /// let row2 = &[O, X, O, X, N];
 /// let expc = &[N, N, O, X, N];
 /// let mut buf = Vec::from(row1);
-/// intersect(&mut buf, row2.iter().copied());
+/// intersect(&mut buf, row2);
 /// assert_eq!(buf, expc);
 /// ```
-pub(crate) fn intersect(row1: &mut [Cell], row2: impl Iterator<Item = Cell>) {
-    for (c, c2) in row1.iter_mut().zip(row2) {
+pub(crate) fn intersect(row1: &mut [Cell], row2: &[Cell]) {
+    for (c, &c2) in row1.iter_mut().zip(row2) {
         if *c != c2 {
             *c = N;
         }
     }
+}
+
+pub(crate) fn comply(row1: &[Cell], row2: &[Cell]) -> bool {
+    row1.iter()
+        .zip(row2)
+        .filter(|(&c, &c2)| c != N && c2 != N)
+        .all(|(&c, &c2)| c == c2)
 }
 
 /// Generates all possible solutions to the provided row information.
@@ -96,48 +103,64 @@ fn _rec(cur: &mut [usize], index: usize, cur_sum: usize, sum: usize, buf: &mut V
 /// use nonogram::schema::Cell::{Crossed as X, Full as O};
 /// let crossed_nums = &[1, 2, 3];
 /// let full_nums = &[3, 2];
-/// let row = numbers_to_row(crossed_nums, full_nums);
-/// assert_eq!(row, &[X, O, O, O, X, X, O, O, X, X, X]);
+/// let row = numbers_to_vec(crossed_nums, full_nums);
+/// assert_eq!(&row, &[X, O, O, O, X, X, O, O, X, X, X]);
 ///
 /// use nonogram::schema::Cell::{Crossed as X, Full as O};
 /// let crossed_nums = &[0, 1];
 /// let full_nums = &[2];
-/// let row = numbers_to_row(crossed_nums, full_nums);
-/// assert_eq!(row, &[O, X, X, O]);
+/// let row = numbers_to_vec(crossed_nums, full_nums);
+/// assert_eq!(&row, &[O, X, X, O]);
 /// ```
-pub(crate) fn numbers_to_vec<'a>(
-    crossed_nums: &'a [usize],
-    full_nums: &'a [usize],
-) -> Box<dyn Iterator<Item = Cell> + 'a> {
+pub(crate) fn numbers_to_vec(crossed_nums: &[usize], full_nums: &[usize]) -> Vec<Cell> {
     if crossed_nums.len() != full_nums.len() + 1 {
         panic!("Invalid");
     }
 
     let last = *crossed_nums.last().unwrap();
 
-    Box::new(
-        crossed_nums
-            .iter()
-            .zip(full_nums)
-            .flat_map(|(&empties, &filled)| {
-                iter::repeat(X)
-                    .take(empties)
-                    .chain(iter::repeat(O).take(filled))
-            })
-            .chain(iter::repeat(X).take(last)),
-    )
+    crossed_nums
+        .iter()
+        .zip(full_nums)
+        .flat_map(|(&empties, &filled)| {
+            iter::repeat(X)
+                .take(empties)
+                .chain(iter::repeat(O).take(filled))
+        })
+        .chain(iter::repeat(X).take(last))
+        .collect()
 }
 
 pub fn solve_vec(labels: &[usize], starting_vec: &[Cell]) -> Vec<Cell> {
     let length = starting_vec.len();
     let mut iter = numbers(labels, length).into_iter();
+    let all_empty = starting_vec.iter().all(|&c| c == N);
 
-    let mut cur = numbers_to_vec(&iter.next().unwrap(), labels).collect_vec();
+    let cur = if all_empty {
+        let mut cur = numbers_to_vec(&iter.next().unwrap(), labels);
 
-    for r in iter {
-        let r = numbers_to_vec(&r, labels);
-        intersect(&mut cur, r.into_iter());
-    }
+        for r in iter {
+            let r = numbers_to_vec(&r, labels);
+            intersect(&mut cur, &r);
+        }
+
+        cur
+    } else {
+        let mut cur = None;
+
+        for r in iter {
+            let r = numbers_to_vec(&r, labels);
+            if !comply(&r, starting_vec) {
+                continue;
+            }
+            if cur.is_none() {
+                cur = Some(r.clone());
+            }
+            intersect(cur.as_deref_mut().unwrap(), &r);
+        }
+
+        cur.unwrap()
+    };
 
     let mut res = starting_vec.to_vec();
 
@@ -150,52 +173,92 @@ pub fn solve_vec(labels: &[usize], starting_vec: &[Cell]) -> Vec<Cell> {
     res
 }
 
-fn solve_row(
-    schema: &mut NonogramSchema,
-    i: usize,
-    modified: &mut VecDeque<(char, usize)>,
-    rows_solved: &mut [bool],
-) {
-    if rows_solved[i] {
-        return;
-    }
-    let row = schema.row_at(i);
-    let labels = schema.row_label_at(i);
-    let solved = solve_vec(labels, &row);
-    for (j, (a, b)) in row.iter().zip(solved.iter()).enumerate() {
-        if *a != *b {
-            modified.push_back(('c', j));
-        }
+trait Solver {
+    fn at(&self, schema: &NonogramSchema, i: usize) -> Vec<Cell>;
+    fn label_at<'a>(&self, schema: &'a NonogramSchema, i: usize) -> &'a [usize];
+    fn set_in_schema(&self, schema: &mut NonogramSchema, i: usize, solved: &[Cell]);
+    fn solved(&self, schema: &NonogramSchema, i: usize) -> bool;
+    fn enum_variant(&self, i: usize) -> SolverEnum;
+}
+
+#[derive(PartialEq, Eq)]
+struct RowSolver;
+
+impl Solver for RowSolver {
+    fn at(&self, schema: &NonogramSchema, i: usize) -> Vec<Cell> {
+        schema.row_at(i)
     }
 
-    schema.set_row_at(i, &solved);
-    if schema.solved_row(i) {
-        rows_solved[i] = true;
+    fn label_at<'a>(&self, schema: &'a NonogramSchema, i: usize) -> &'a [usize] {
+        schema.row_label_at(i)
+    }
+
+    fn set_in_schema(&self, schema: &mut NonogramSchema, i: usize, solved: &[Cell]) {
+        schema.set_row_at(i, solved);
+    }
+
+    fn solved(&self, schema: &NonogramSchema, i: usize) -> bool {
+        schema.solved_row(i)
+    }
+
+    fn enum_variant(&self, i: usize) -> SolverEnum {
+        SolverEnum::Col(i)
     }
 }
 
-fn solve_col(
+struct ColSolver;
+
+impl Solver for ColSolver {
+    fn at(&self, schema: &NonogramSchema, i: usize) -> Vec<Cell> {
+        schema.col_at(i)
+    }
+
+    fn label_at<'a>(&self, schema: &'a NonogramSchema, i: usize) -> &'a [usize] {
+        schema.col_label_at(i)
+    }
+
+    fn set_in_schema(&self, schema: &mut NonogramSchema, i: usize, solved: &[Cell]) {
+        schema.set_col_at(i, solved);
+    }
+
+    fn solved(&self, schema: &NonogramSchema, i: usize) -> bool {
+        schema.solved_col(i)
+    }
+
+    fn enum_variant(&self, i: usize) -> SolverEnum {
+        SolverEnum::Row(i)
+    }
+}
+
+fn _solve(
+    solver: Box<dyn Solver>,
     schema: &mut NonogramSchema,
-    j: usize,
-    modified: &mut VecDeque<(char, usize)>,
-    cols_solved: &mut [bool],
+    i: usize,
+    modified: &mut VecDeque<SolverEnum>,
+    bools_solved: &mut [bool],
 ) {
-    if cols_solved[j] {
+    if bools_solved[i] {
         return;
     }
-    let col = schema.col_at(j);
-    let labels = schema.col_label_at(j);
+    let col = solver.at(schema, i);
+    let labels = solver.label_at(schema, i);
     let solved = solve_vec(labels, &col);
     for (i, (a, b)) in col.iter().zip(solved.iter()).enumerate() {
         if *a != *b {
-            modified.push_back(('r', i));
+            modified.push_back(solver.enum_variant(i));
         }
     }
 
-    schema.set_col_at(j, &solved);
-    if schema.solved_col(j) {
-        cols_solved[j] = true;
+    solver.set_in_schema(schema, i, &solved);
+    if solver.solved(schema, i) {
+        bools_solved[i] = true;
     }
+}
+
+#[derive(Debug)]
+enum SolverEnum {
+    Row(usize),
+    Col(usize),
 }
 
 pub fn solve(schema: &mut NonogramSchema) {
@@ -205,19 +268,25 @@ pub fn solve(schema: &mut NonogramSchema) {
     let mut modified = VecDeque::new();
 
     for i in 0..schema.rows() {
-        modified.push_back(('r', i));
+        modified.push_back(SolverEnum::Row(i));
     }
 
     for j in 0..schema.cols() {
-        modified.push_back(('c', j));
+        modified.push_back(SolverEnum::Col(j));
     }
 
     while !modified.is_empty() {
-        match modified.pop_front().unwrap() {
-            ('r', i) => solve_row(schema, i, &mut modified, &mut rows_solved),
-            ('c', j) => solve_col(schema, j, &mut modified, &mut cols_solved),
-            _ => unreachable!(),
-        }
+        let solver_enum = modified.pop_front().unwrap();
+
+        debug!("Got {:?}", solver_enum);
+        
+        let (bools, solver, i): (&mut [bool], Box<dyn Solver>, usize) = match solver_enum {
+            SolverEnum::Row(i) => (&mut rows_solved, Box::new(RowSolver), i),
+            SolverEnum::Col(i) => (&mut cols_solved, Box::new(ColSolver), i),
+        };
+        
+        _solve(solver, schema, i, &mut modified, bools);
+        schema.print(Level::Debug);
     }
 
     // if !rows_solved.iter().all(|v| *v) || !cols_solved.iter().all(|v| *v) {

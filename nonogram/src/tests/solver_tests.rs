@@ -92,7 +92,7 @@ mod intersect_tests {
     )]
     fn test(row1: &[Cell], row2: &[Cell], expected: &[Cell]) {
         let mut buf = Vec::from(row1);
-        intersect(&mut buf, row2.iter().copied());
+        intersect(&mut buf, row2);
         assert_eq!(buf, expected);
     }
 }
@@ -127,7 +127,7 @@ mod numbers_to_row_tests {
         "case empty"
     )]
     fn test(voids: &[usize], labels: &[usize], expected: &[Cell]) {
-        let res: Vec<_> = numbers_to_vec(voids, labels).collect();
+        let res: Vec<_> = numbers_to_vec(voids, labels);
         assert_eq!(&res, expected);
     }
 
@@ -149,7 +149,7 @@ mod get_row_tests {
     pub fn test_get_row_1() {
         let starting_row = vec![N; 15];
         let labels = [7, 7];
-        let res = solve_vec(&labels, starting_row);
+        let res = solve_vec(&labels, &starting_row);
 
         let mut exp = vec![O; 15];
         exp[7] = X;
@@ -160,7 +160,7 @@ mod get_row_tests {
     pub fn test_get_row_2() {
         let starting_row = vec![N; 15];
         let labels = [8];
-        let res = solve_vec(&labels, starting_row);
+        let res = solve_vec(&labels, &starting_row);
 
         let mut exp = vec![N; 15];
         exp[7] = O;
