@@ -1,2 +1,2 @@
 [workspace]
-members = ["nonogram", "nonogram-cli"]
+members = ["nonogram", "nonogram-cli", "nonogram-bench"]
