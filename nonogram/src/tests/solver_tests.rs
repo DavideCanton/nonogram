@@ -1,7 +1,7 @@
 use crate::schema::{Cell::Crossed as X, Cell::Empty as N, Cell::Full as O};
 
 mod number_tests {
-    use std::{collections::HashSet, hash::Hash};
+    use std::collections::HashSet;
 
     use crate::solver::numbers;
 
@@ -79,13 +79,13 @@ mod intersect_tests {
     use test_case::test_case;
 
     #[test_case(
-        &[N,N,X,O,O,X,N,O,X,N], 
+        &[N,N,X,O,O,X,N,O,X,N],
         &[N,X,N,O,X,X,O,X,O,N],
         &[N,N,N,O,N,X,N,N,N,N];
         "case 1"
     )]
     #[test_case(
-        &[N,N,X,O,O,X,N,O,X,N], 
+        &[N,N,X,O,O,X,N,O,X,N],
         &[N,N,N,O,O,X,N,X,O,N],
         &[N,N,N,O,O,X,N,N,N,N];
         "case 2"
@@ -103,27 +103,27 @@ mod numbers_to_row_tests {
     use test_case::test_case;
 
     #[test_case(
-        &[1, 2, 3], 
+        &[1, 2, 3],
         &[2, 4],
-        &[X,O,O,X,X,O,O,O,O,X,X,X,]; 
+        &[X,O,O,X,X,O,O,O,O,X,X,X,];
         "case 1"
     )]
     #[test_case(
-        &[0, 2, 3], 
+        &[0, 2, 3],
         &[2, 4],
-        &[O,O,X,X,O,O,O,O,X,X,X,]; 
+        &[O,O,X,X,O,O,O,O,X,X,X,];
         "case 2"
     )]
     #[test_case(
-        &[1, 2], 
+        &[1, 2],
         &[2],
-        &[X,O,O,X,X]; 
+        &[X,O,O,X,X];
         "case 3"
     )]
     #[test_case(
-        &[0, 0], 
+        &[0, 0],
         &[3],
-        &[O,O,O]; 
+        &[O,O,O];
         "case empty"
     )]
     fn test(voids: &[usize], labels: &[usize], expected: &[Cell]) {
