@@ -2,9 +2,14 @@
 // generate all rows
 // intersect
 
-use std::iter;
+use std::{collections::VecDeque, iter};
 
-use crate::schema::Cell::{self, Crossed as X, Empty as N, Full as O};
+use itertools::Itertools;
+
+use crate::schema::{
+    Cell::{self, Crossed as X, Empty as N, Full as O},
+    NonogramSchema,
+};
 
 /// This function can be used to compute the intersection of two rows in a two-dimensional grid
 /// of `nonogram::schema::Cell` values, where the intersection is defined as the set of elements
@@ -100,7 +105,7 @@ fn _rec(cur: &mut [usize], index: usize, cur_sum: usize, sum: usize, buf: &mut V
 /// let row = numbers_to_row(crossed_nums, full_nums);
 /// assert_eq!(row, &[O, X, X, O]);
 /// ```
-pub(crate) fn numbers_to_row<'a>(
+pub(crate) fn numbers_to_vec<'a>(
     crossed_nums: &'a [usize],
     full_nums: &'a [usize],
 ) -> Box<dyn Iterator<Item = Cell> + 'a> {
@@ -123,20 +128,99 @@ pub(crate) fn numbers_to_row<'a>(
     )
 }
 
-fn get_row(labels: &[usize], starting_row: Vec<Cell>) -> Vec<Cell> {
-    let length = starting_row.len();
+pub fn solve_vec(labels: &[usize], starting_vec: &[Cell]) -> Vec<Cell> {
+    let length = starting_vec.len();
     let mut iter = numbers(labels, length).into_iter();
 
-    let mut cur = if starting_row.iter().all(|&c| c == N) {
-        numbers_to_row(&iter.next().unwrap(), labels).collect()
-    } else {
-        starting_row
-    };
+    let mut cur = numbers_to_vec(&iter.next().unwrap(), labels).collect_vec();
 
     for r in iter {
-        let r = numbers_to_row(&r, labels);
+        let r = numbers_to_vec(&r, labels);
         intersect(&mut cur, r.into_iter());
     }
 
-    cur
+    let mut res = starting_vec.to_vec();
+
+    for (x, y) in res.iter_mut().zip(cur) {
+        if *x == N {
+            *x = y;
+        }
+    }
+
+    res
+}
+
+fn solve_row(
+    schema: &mut NonogramSchema,
+    i: usize,
+    modified: &mut VecDeque<(char, usize)>,
+    rows_solved: &mut [bool],
+) {
+    if rows_solved[i] {
+        return;
+    }
+    let row = schema.row_at(i);
+    let labels = schema.row_label_at(i);
+    let solved = solve_vec(labels, &row);
+    for (j, (a, b)) in row.iter().zip(solved.iter()).enumerate() {
+        if *a != *b {
+            modified.push_back(('c', j));
+        }
+    }
+
+    schema.set_row_at(i, &solved);
+    if schema.solved_row(i) {
+        rows_solved[i] = true;
+    }
+}
+
+fn solve_col(
+    schema: &mut NonogramSchema,
+    j: usize,
+    modified: &mut VecDeque<(char, usize)>,
+    cols_solved: &mut [bool],
+) {
+    if cols_solved[j] {
+        return;
+    }
+    let col = schema.col_at(j);
+    let labels = schema.col_label_at(j);
+    let solved = solve_vec(labels, &col);
+    for (i, (a, b)) in col.iter().zip(solved.iter()).enumerate() {
+        if *a != *b {
+            modified.push_back(('r', i));
+        }
+    }
+
+    schema.set_col_at(j, &solved);
+    if schema.solved_col(j) {
+        cols_solved[j] = true;
+    }
+}
+
+pub fn solve(schema: &mut NonogramSchema) {
+    let mut rows_solved = vec![false; schema.rows()];
+    let mut cols_solved = vec![false; schema.cols()];
+
+    let mut modified = VecDeque::new();
+
+    for i in 0..schema.rows() {
+        modified.push_back(('r', i));
+    }
+
+    for j in 0..schema.cols() {
+        modified.push_back(('c', j));
+    }
+
+    while !modified.is_empty() {
+        match modified.pop_front().unwrap() {
+            ('r', i) => solve_row(schema, i, &mut modified, &mut rows_solved),
+            ('c', j) => solve_col(schema, j, &mut modified, &mut cols_solved),
+            _ => unreachable!(),
+        }
+    }
+
+    // if !rows_solved.iter().all(|v| *v) || !cols_solved.iter().all(|v| *v) {
+    //     panic!("impossible");
+    // }
 }

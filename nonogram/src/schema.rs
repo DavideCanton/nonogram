@@ -1,13 +1,25 @@
 use array2d::Array2D;
 use itertools::Itertools;
+use std::fmt::Debug;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Cell {
     Empty,
     Full,
     Crossed,
 }
 
+impl Debug for Cell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Empty => write!(f, " "),
+            Self::Full => write!(f, "O"),
+            Self::Crossed => write!(f, "X"),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum Error {
     InvalidLabel(String),
 }
@@ -71,24 +83,52 @@ impl NonogramSchema {
         self.data.num_columns()
     }
 
-    pub fn solved(&self) -> bool {
-        let res = self
-            .data
-            .rows_iter()
-            .zip(&self.rows_labels)
-            .all(|(data, labels)| self.is_solved(data.copied(), labels));
+    pub fn row_at(&self, i: usize) -> Vec<Cell> {
+        self.data.row_iter(i).unwrap().copied().collect()
+    }
 
-        if !res {
-            return false;
+    pub fn set_row_at(&mut self, i: usize, row: &[Cell]) {
+        for (j, r) in row.iter().enumerate() {
+            self.data.set(i, j, *r).unwrap();
         }
+    }
 
-        let res = self
-            .data
-            .columns_iter()
-            .zip(&self.cols_labels)
-            .all(|(data, labels)| self.is_solved(data.copied(), labels));
+    pub fn col_at(&self, j: usize) -> Vec<Cell> {
+        self.data.column_iter(j).unwrap().copied().collect()
+    }
 
-        res
+    pub fn set_col_at(&mut self, j: usize, col: &[Cell]) {
+        for (i, r) in col.iter().enumerate() {
+            self.data.set(i, j, *r).unwrap();
+        }
+    }
+
+    pub fn row_label_at(&self, i: usize) -> &[usize] {
+        &self.rows_labels[i]
+    }
+
+    pub fn col_label_at(&self, j: usize) -> &[usize] {
+        &self.cols_labels[j]
+    }
+
+    pub fn solved_row(&self, i: usize) -> bool {
+        self.is_solved(
+            self.data.row_iter(i).unwrap().copied(),
+            &self.rows_labels[i],
+        )
+    }
+
+    pub fn solved_col(&self, j: usize) -> bool {
+        self.is_solved(
+            self.data.column_iter(j).unwrap().copied(),
+            &self.cols_labels[j],
+        )
+    }
+
+    pub fn print(&self) {
+        for i in 0..self.rows() {
+            println!("{:?}", self.row_at(i));
+        }
     }
 
     fn is_solved(&self, data: impl Iterator<Item = Cell>, labels: &Labels) -> bool {

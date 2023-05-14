@@ -99,7 +99,7 @@ mod intersect_tests {
 
 mod numbers_to_row_tests {
     use super::{O, X};
-    use crate::{schema::Cell, solver::numbers_to_row};
+    use crate::{schema::Cell, solver::numbers_to_vec};
     use test_case::test_case;
 
     #[test_case(
@@ -127,7 +127,7 @@ mod numbers_to_row_tests {
         "case empty"
     )]
     fn test(voids: &[usize], labels: &[usize], expected: &[Cell]) {
-        let res: Vec<_> = numbers_to_row(voids, labels).collect();
+        let res: Vec<_> = numbers_to_vec(voids, labels).collect();
         assert_eq!(&res, expected);
     }
 
@@ -137,6 +137,33 @@ mod numbers_to_row_tests {
     #[test_case(&[1, 2], &[]; "case 4")]
     #[should_panic]
     fn test_panic(voids: &[usize], labels: &[usize]) {
-        let _ = numbers_to_row(voids, labels);
+        let _ = numbers_to_vec(voids, labels);
+    }
+}
+
+mod get_row_tests {
+    use super::{N, O, X};
+    use crate::solver::solve_vec;
+
+    #[test]
+    pub fn test_get_row_1() {
+        let starting_row = vec![N; 15];
+        let labels = [7, 7];
+        let res = solve_vec(&labels, starting_row);
+
+        let mut exp = vec![O; 15];
+        exp[7] = X;
+        assert_eq!(res, exp);
+    }
+
+    #[test]
+    pub fn test_get_row_2() {
+        let starting_row = vec![N; 15];
+        let labels = [8];
+        let res = solve_vec(&labels, starting_row);
+
+        let mut exp = vec![N; 15];
+        exp[7] = O;
+        assert_eq!(res, exp);
     }
 }
