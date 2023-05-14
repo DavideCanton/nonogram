@@ -1,20 +1,22 @@
-use criterion::Criterion;
+use criterion::{Criterion, black_box};
 use nonogram::{schema::Cell, solver::solve_vec};
+
+#[inline(always)]
+fn run(len: usize, labels: &[usize]) {
+    let starting_row = vec![Cell::Empty; len];
+    solve_vec(black_box(labels), black_box(&starting_row));
+}
 
 pub fn solve_vec_bench(c: &mut Criterion) {
     c.bench_function("solve_vec_easy", |b| {
         b.iter(|| {
-            let starting_row = vec![Cell::Empty; 15];
-            let labels = [7, 7];
-            solve_vec(&labels, &starting_row);
+            run(15, &[7, 7]);
         })
     });
 
     c.bench_function("solve_vec_no", |b| {
         b.iter(|| {
-            let starting_row = vec![Cell::Empty; 15];
-            let labels = [1; 8];
-            solve_vec(&labels, &starting_row);
+            run(15, &[1; 8]);
         })
     });
 }
