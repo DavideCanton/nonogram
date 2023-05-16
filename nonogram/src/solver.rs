@@ -4,7 +4,7 @@
 
 use std::{collections::VecDeque, iter};
 
-use log::{debug, Level};
+use log::{debug, Level, info};
 
 use crate::schema::{
     Cell::{self, Crossed as X, Empty as N, Full as O},
@@ -275,21 +275,27 @@ pub fn solve(schema: &mut NonogramSchema) {
         modified.push_back(SolverEnum::Col(j));
     }
 
+    let mut cnt = 0;
+
     while !modified.is_empty() {
         let solver_enum = modified.pop_front().unwrap();
 
-        debug!("Got {:?}", solver_enum);
+        if cnt % 100 == 0 {
+            info!("Iteration {}", cnt);
+        }
+        cnt += 1;
         
         let (bools, solver, i): (&mut [bool], Box<dyn Solver>, usize) = match solver_enum {
             SolverEnum::Row(i) => (&mut rows_solved, Box::new(RowSolver), i),
             SolverEnum::Col(i) => (&mut cols_solved, Box::new(ColSolver), i),
         };
-        
+        debug!("Got {:?} -> {:?}", solver_enum, solver.label_at(schema, i));
+
         _solve(solver, schema, i, &mut modified, bools);
         schema.print(Level::Debug);
     }
 
-    // if !rows_solved.iter().all(|v| *v) || !cols_solved.iter().all(|v| *v) {
-    //     panic!("impossible");
-    // }
+    if !rows_solved.iter().all(|v| *v) || !cols_solved.iter().all(|v| *v) {
+        panic!("impossible");
+    }
 }

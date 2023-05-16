@@ -1,4 +1,4 @@
-use criterion::{Criterion, black_box};
+use criterion::{black_box, Criterion};
 use nonogram::{schema::Cell, solver::solve_vec};
 
 #[inline(always)]
@@ -17,6 +17,12 @@ pub fn solve_vec_bench(c: &mut Criterion) {
     c.bench_function("solve_vec_no", |b| {
         b.iter(|| {
             run(15, &[1; 8]);
+        })
+    });
+
+    c.bench_function("slow", |b| {
+        b.iter(|| {
+            run(38, &[1, 2, 1, 1, 2, 2, 4, 5, 9]);
         })
     });
 }
