@@ -1,0 +1,16 @@
+{
+	"name": "Rust",
+	"image": "mcr.microsoft.com/devcontainers/rust:latest",
+	"runArgs": [
+		"--userns=keep-id"
+	],
+	"remoteUser": "vscode",
+	"containerUser": "vscode",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"mhutchie.git-graph"
+			]
+		}
+	}
+}
